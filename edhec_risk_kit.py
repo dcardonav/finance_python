@@ -190,3 +190,29 @@ def sharpe_ratio(r, riskfree_rate, periods_per_year):
 
     return ann_ex_ret/ann_vol
 
+def portfolio_return(weights, returns):
+    """
+    Going from weights (how much to allocate in each asset) to the return of that bundle
+    """
+    return weights.T @ returns
+
+def portfolio_vol(weights, covmat):
+    """
+    Going from weights (how much to allocate in each asset) to the volatility of that bundle
+    """
+    return (weights.T @ covmat @ weights)**0.5
+
+def plot_ef2(n_points, er, cov, style='.-'):
+    """
+    Plots the 2-asset efficient frontier
+    """
+
+    if er.shape[0] != 2 or er.shape[0] != 2:
+        raise ValueError("plot_ef2 can only plot 2-asset frontiers")
+
+    weights = [np.array([w, 1 - w]) for w in np.linspace(0, 1, n_points)]
+    # with the sequence of weights we now retrieve the returns and the volatilities
+    rets = [portfolio_return(w, er) for w in weights]
+    vols = [portfolio_vol(w, cov) for w in weights]
+    ef = pd.DataFrame(data={"Ret": rets, "Vol": vols})
+    return ef.plot.line(x="Vol", y="Ret", style=style)
