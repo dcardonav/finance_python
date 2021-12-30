@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import scipy.stats
+import scipy.optimize
+
+import edhec_risk_kit
 
 
 def drawdown(return_series: pd.Series):
@@ -216,3 +219,118 @@ def plot_ef2(n_points, er, cov, style='.-'):
     vols = [portfolio_vol(w, cov) for w in weights]
     ef = pd.DataFrame(data={"Ret": rets, "Vol": vols})
     return ef.plot.line(x="Vol", y="Ret", style=style)
+
+
+def plot_efn(n_points, er, cov, style='.-', show_cml=False, riskfree_rate=0):
+    """
+    Plots the N-asset efficient frontier
+    """
+
+    # This is the critical part: finding the optimal mix of weights
+    weights = optimal_weights(n_points, er, cov)
+    # with the sequence of weights we now retrieve the returns and the volatilities
+    rets = [portfolio_return(w, er) for w in weights]
+    vols = [portfolio_vol(w, cov) for w in weights]
+    ef = pd.DataFrame(data={"Ret": rets, "Vol": vols})
+    ax = ef.plot.line(x="Vol", y="Ret", style=style)
+
+    if show_cml:
+        ax.set_xlim(left=0)
+        w_msr = msr(riskfree_rate, er, cov)
+        r_msr = portfolio_return(w_msr, er)
+        vol_msr = portfolio_vol(w_msr, cov)
+
+        # Now we plot the Capital Market Line
+        cml_x = [0, vol_msr]
+        cml_y = [riskfree_rate, r_msr]
+        ax.plot(cml_x, cml_y, color='green', marker='o', linestyle='dashed', markersize=12, linewidth=2)
+
+    return ax
+
+
+def optimal_weights(n_points, er, cov):
+    """
+    List of weights to run the optimizer on to minimize the vol
+    """
+
+    # show me the minimum volatility for a space of min and max returns
+    target_rs = np.linspace(er.min(), er.max(), n_points)
+    weights = [minimize_vol(target_return, er, cov) for target_return in target_rs]
+
+    return weights
+
+
+def minimize_vol(target_return, er, cov):
+    """
+    Go from target return to optimal n-dim weight vector
+    """
+
+    n = er.shape[0]
+    # the optimizer needs an initial point
+    init_guess = np.repeat(1/n, n)
+
+    # don't want to go lower than zero and not higher than 1 (no shorting, no leverage)
+    bounds = ((0.0, 1.0),) * n # multiplying a tuple generates multiple tuples
+
+    # let us specify the constraints
+    return_is_target = {
+        'type': 'eq',
+        # arguments required for the evaluation function
+        'args': (er,),
+        # This is the function we're going to use to check if we achieved the expected return
+        'fun': lambda weights, er:  target_return - edhec_risk_kit.portfolio_return(weights, er)
+    }
+
+    weights_sum_to_1 = {
+        'type': 'eq',
+        'fun': lambda weights: np.sum(weights) - 1
+    }
+
+    results = scipy.optimize.minimize(portfolio_vol, # function to minimize
+                                      init_guess, # starting point
+                                      args=(cov,), # argument required by the function to minimize
+                                      method="SLSQP", # quadratic programming algorithm
+                                      options={'disp':False}, # don't show solver output
+                                      constraints=(return_is_target, weights_sum_to_1), # problem constraints
+                                      bounds=bounds) # bounds on the solution
+
+    return results.x
+
+
+def msr(riskfree_rate, er, cov):
+    """
+    Gives the optimum weights in pressence of a risk-free assets (Maximum Sharpe Ratio)
+    """
+
+    n = er.shape[0]
+    # the optimizer needs an initial point
+    init_guess = np.repeat(1/n, n)
+
+    # don't want to go lower than zero and not higher than 1 (no shorting, no leverage)
+    bounds = ((0.0, 1.0),) * n # multiplying a tuple generates multiple tuples
+
+    weights_sum_to_1 = {
+        'type': 'eq',
+        'fun': lambda weights: np.sum(weights) - 1
+    }
+
+    results = scipy.optimize.minimize(neg_sharpe_ratio, # function to maximize by negation
+                                      init_guess, # starting point
+                                      args=(riskfree_rate, er, cov,),  # argument required by the function to minimize
+                                      method="SLSQP",  # quadratic programming algorithm
+                                      options={'disp':False},  # don't show solver output
+                                      constraints=(weights_sum_to_1),  # problem constraints
+                                      bounds=bounds)  # bounds on the solution
+
+    return results.x
+
+
+def neg_sharpe_ratio(weights, riskfree_rate, er, cov):
+    """
+    Returns the negative of the Sharpe Ratio under given weights
+    """
+    r = portfolio_return(weights, er)
+    vol = portfolio_vol(weights, cov)
+
+    return -(r-riskfree_rate)/vol
+
