@@ -221,7 +221,7 @@ def plot_ef2(n_points, er, cov, style='.-'):
     return ef.plot.line(x="Vol", y="Ret", style=style)
 
 
-def plot_efn(n_points, er, cov, style='.-', show_cml=False, riskfree_rate=0):
+def plot_efn(n_points, er, cov, style='.-', show_cml=False, riskfree_rate=0, show_ew=False, show_gmv=False):
     """
     Plots the N-asset efficient frontier
     """
@@ -233,6 +233,25 @@ def plot_efn(n_points, er, cov, style='.-', show_cml=False, riskfree_rate=0):
     vols = [portfolio_vol(w, cov) for w in weights]
     ef = pd.DataFrame(data={"Ret": rets, "Vol": vols})
     ax = ef.plot.line(x="Vol", y="Ret", style=style)
+
+    # Code to plot the equally-weighted portfolio
+    if show_ew:
+        n = er.shape[0]
+        w_ew = np.repeat(1/n, n)
+        r_ew = portfolio_return(w_ew, er)
+        vol_ew = portfolio_vol(w_ew, cov)
+        # display on the existing axis
+        ax.plot([vol_ew], [r_ew], color='goldenrod', marker='o', markersize=10)
+
+    # Code to plot the Global-Minimum-Variance portfolio
+    if show_gmv:
+        n = er.shape[0]
+        # only depends on the covariance matrix
+        w_gmv = gmv(cov)
+        r_gmv = portfolio_return(w_gmv, er)
+        vol_gmv = portfolio_vol(w_gmv, cov)
+        # display on the existing axis
+        ax.plot([vol_gmv], [r_gmv], color='midnightblue', marker='o', markersize=10)
 
     if show_cml:
         ax.set_xlim(left=0)
@@ -246,6 +265,15 @@ def plot_efn(n_points, er, cov, style='.-', show_cml=False, riskfree_rate=0):
         ax.plot(cml_x, cml_y, color='green', marker='o', linestyle='dashed', markersize=12, linewidth=2)
 
     return ax
+
+def gmv(cov):
+    """
+    Returns the weights associated to the Global Minimum Variance portfolio
+    """
+
+    n = cov.shape[0]
+    return msr(0, np.repeat(1, n), cov)
+
 
 
 def optimal_weights(n_points, er, cov):
