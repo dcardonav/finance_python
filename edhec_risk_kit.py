@@ -509,3 +509,51 @@ def summary_stats(r, riskfree_rate=0.03):
         "Sharpe Ratio": ann_sr,
         "Max Drawdown": dd
     })
+
+def gbm0(n_years=10, n_scenarios=1000, mu=0.07, sigma=0.15, steps_per_year=12, s_0=100):
+    """
+    Evolution of a Stock Price using a Geometric Brownian Motion generator
+    :param n_years:
+    :param n_scenarios:
+    :param mu:
+    :param sigma:
+    :return:
+    """
+
+    dt = 1/steps_per_year
+    n_steps = int(n_years*steps_per_year)
+
+    # Now it's time to generate the random part of the model
+    xi = np.random.normal(size=(n_steps, n_scenarios))
+
+    rets = mu*dt + sigma*np.sqrt(dt)*xi
+    rets = pd.DataFrame(rets)
+
+    # Now returns to prices
+    prices = s_0*(1+rets).cumprod()
+
+    return prices
+
+
+def gbm(n_years=10, n_scenarios=1000, mu=0.07, sigma=0.15, steps_per_year=12, s_0=100, prices = True):
+    """
+    Evolution of a Stock Price using a Geometric Brownian Motion generator. A more efficient version in the
+    random number generation part.
+    :param n_years:
+    :param n_scenarios:
+    :param mu:
+    :param sigma:
+    :return:
+    """
+
+    # Derive per-step Model Parameters from User Specifications
+    dt = 1/steps_per_year
+    n_steps = int(n_years*steps_per_year) + 1
+    # the standard way ...
+    # rets_plus_1 = np.random.normal(loc=mu*dt+1, scale=sigma*np.sqrt(dt), size=(n_steps, n_scenarios))
+    # without discretization error ...
+    rets_plus_1 = np.random.normal(loc=(1+mu)**dt, scale=(sigma*np.sqrt(dt)), size=(n_steps, n_scenarios))
+    rets_plus_1[0] = 1
+    ret_val = s_0*pd.DataFrame(rets_plus_1).cumprod() if prices else rets_plus_1-1
+
+    return ret_val
