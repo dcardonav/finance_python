@@ -557,3 +557,77 @@ def gbm(n_years=10, n_scenarios=1000, mu=0.07, sigma=0.15, steps_per_year=12, s_
     ret_val = s_0*pd.DataFrame(rets_plus_1).cumprod() if prices else rets_plus_1-1
 
     return ret_val
+
+def discout(t, r):
+    """
+    Compute the price of a pure discount bond that pays a dollar at time t, given interest rate r
+    :param t:
+    :param r:
+    :return:
+    """
+
+    return (1+r)**(-t)
+
+def pv(l, r):
+    """
+    Computes the present value of a sequence of liabilities
+    :param l:
+    :param r:
+    :return:
+    """
+
+    dates = l.index
+    discounts = discout(dates, r)
+    return (discounts*l).sum()
+
+def funding_ratio(assets, liabilities, r):
+    """Computes the funding ratio of some assets given liabilities and interest rates"""
+
+    return assets/pv(liabilities, r)
+
+def show_funding_ratio(assets, liabilities, r):
+
+    fr = funding_ratio(assets, liabilities, r)
+    print(f'{fr*100:.2f}')
+
+def inst_to_ann(r):
+    """
+    Converts short rate to an annualized rate
+    :param r:
+    :return:
+    """
+    return np.expm1(r)
+
+def ann_to_inst(r):
+    """
+    Convert annualized to a short rate
+    :param r:
+    :return:
+    """
+    return np.log1p(r)
+
+def cir(n_years=10, n_scenarios=1, a=0.05, b=0.03, sigma=0.05, steps_per_year=12, r_0=None):
+    """
+    Implements the CIR model for interest rates
+    :param n_years:
+    :param n_scenarios:
+    :param a:
+    :param b:
+    :param sigma:
+    :param steps_per_year:
+    :param r_0:
+    :return:
+    """
+    if r_0 is None:
+        r_0 = b
+    r_0 = ann_to_inst(r_0) # from annualized rate to instantenous rate, doesn't make much of a differences for small r
+    dt = 1/steps_per_year
+
+    num_steps = int(n_years*steps_per_year)+1)
+    shock = np.random.normal(0, scale=np.sqrt(dt), size=(num_steps, n_scenarios))
+    rates = np.empty_like(shock)
+    rates[0] = r_0
+
+    for step in range(1, num_steps):
+        r_t = rates[step-1]
+        d_r_t = a*(b-r_t)
