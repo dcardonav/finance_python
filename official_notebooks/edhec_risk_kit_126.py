@@ -602,3 +602,4 @@ def match_durations(cf_t, cf_s, cf_l, discount_rate):
     d_s = macaulay_duration(cf_s, discount_rate)
     d_l = macaulay_duration(cf_l, discount_rate)
     return (d_l - d_t)/(d_l - d_s)
+
