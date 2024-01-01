@@ -40,13 +40,13 @@ def get_ind_file(filetype, weighting="vw", n_inds=30):
         weighting is one of "ew", "vw"
         number of inds is 30 or 49
     """    
-    if filetype is "returns":
+    if filetype == "returns":
         name = f"{weighting}_rets" 
         divisor = 100
-    elif filetype is "nfirms":
+    elif filetype == "nfirms":
         name = "nfirms"
         divisor = 1
-    elif filetype is "size":
+    elif filetype == "size":
         name = "size"
         divisor = 1
     else:
